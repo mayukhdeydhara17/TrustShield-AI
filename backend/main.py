@@ -1,4 +1,4 @@
-
+from backend.security.ssl_checker import check_ssl as analyze_ssl
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -151,13 +151,18 @@ def scan_website(request: ScanRequest):
         score, reasons = analyze_url(request.url, host)
 
         ssl_valid = None
+        ssl_report = None
 
         if urlparse(request.url).scheme == "https":
-            ssl_valid = check_ssl(host)
+            ssl_report = analyze_ssl(host)
+            ssl_valid = ssl_report["ssl_valid"]
 
-            if ssl_valid is False:
+            if ssl_report["status"] in ["invalid", "expired", "no_https", "error"]:
                 score = min(score + 25, 100)
-                reasons.append("SSL certificate validation failed.")
+                reasons.append(f"SSL problem: {ssl_report['message']}")
+            elif ssl_report["status"] == "expiring_soon":
+                score = min(score + 10, 100)
+                reasons.append(ssl_report["message"])
 
         if score >= 60:
             level = "HIGH"
@@ -171,6 +176,7 @@ def scan_website(request: ScanRequest):
             "risk_level": level,
             "phishing_detected": score >= 60,
             "ssl_valid": ssl_valid,
+            "ssl_details": ssl_report,
             "security_status": (
                 "Needs attention" if score >= 30 else "No major URL indicators"
             ),
