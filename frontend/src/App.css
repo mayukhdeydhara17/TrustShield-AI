@@ -245,3 +245,86 @@
     align-items: flex-start;
   }
 }
+
+
+/* TRUSTSHIELD RESPONSIVE DESIGN */
+
+/* Tablet */
+@media (max-width: 900px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-section {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-links {
+    gap: 15px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 5%;
+  }
+
+  .brand h2 {
+    font-size: 18px;
+  }
+
+  .nav-links {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .dashboard-grid,
+  .stats-section {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard,
+  .risk-chart,
+  .scan-history {
+    padding: 25px 5%;
+  }
+
+  .dashboard-card {
+    padding: 20px;
+  }
+
+  .history-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .history-item > div {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .hero {
+    padding-left: 5%;
+    padding-right: 5%;
+  }
+
+  .scanner {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .scanner input,
+  .scanner button {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .security-details {
+    grid-template-columns: 1fr;
+  }
+}

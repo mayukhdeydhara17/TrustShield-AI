@@ -1,4 +1,3 @@
-
 function ScanHistory({ history = [] }) {
   return (
     <section className="scan-history">

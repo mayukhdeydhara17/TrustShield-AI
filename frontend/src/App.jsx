@@ -77,8 +77,9 @@ function App() {
       });
 
       setResult({
+        url: url.trim(),
+        scannedAt: new Date().toLocaleString(),
         score: data.risk_score,
-        level: data.risk_level,
         phishing: data.phishing_detected
           ? "Suspicious"
           : "No phishing detected",
