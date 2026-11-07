@@ -66,7 +66,7 @@ function App() {
       };
 
       setScanHistory((previous) => {
-        const updated = [newScan, ...previous].slice(0, 10);
+        const updated = [newScan, ...previous];
 
         localStorage.setItem(
           "trustshield_scan_history",
@@ -80,15 +80,20 @@ function App() {
         url: url.trim(),
         scannedAt: new Date().toLocaleString(),
         score: data.risk_score,
+        level: data.risk_level,
         phishing: data.phishing_detected
           ? "Suspicious"
           : "No phishing detected",
-        ssl:
-          data.ssl_valid === null
-            ? "Unknown"
-            : data.ssl_valid
-              ? "Valid"
-              : "Invalid",
+
+        ssl: data.ssl_valid === null
+          ? "Unknown"
+          : data.ssl_valid
+            ? "Valid"
+            : "Invalid",
+
+        sslDetails: data.ssl_details,
+        websiteSecurity: data.website_security,
+
         security: data.security_status,
         explanation: data.explanation,
       });
