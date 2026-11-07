@@ -103,7 +103,32 @@ function App() {
         <h2>🛡️ TrustShield AI</h2>
         <p>Backend: {backendStatus}</p>
       </nav>
+      <section className="stats-section">
 
+        <div className="stat-card">
+          <h3>Total Scans</h3>
+          <h2>{scanHistory.length}</h2>
+        </div>
+
+        <div className="stat-card">
+          <h3>Suspicious Websites</h3>
+          <h2>
+            {scanHistory.filter(
+              scan => scan.riskLevel === "High"
+            ).length}
+          </h2>
+        </div>
+
+        <div className="stat-card">
+          <h3>Low Risk Websites</h3>
+          <h2>
+            {scanHistory.filter(
+              scan => scan.riskLevel === "Low"
+            ).length}
+          </h2>
+        </div>
+
+      </section>
       <main className="hero">
 
         <p className="tagline">

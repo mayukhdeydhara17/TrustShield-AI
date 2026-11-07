@@ -39,3 +39,92 @@
 .history-card small {
   color: #aaa;
 }
+
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 5%;
+    background: #111827;
+    border-bottom: 1px solid #263244;
+    color: white;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.brand h2 {
+    font-size: 21px;
+    margin: 0;
+}
+
+.brand-icon {
+    font-size: 25px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 30px;
+}
+
+.nav-links a {
+    color: #aab6c8;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.nav-links a:hover {
+    color: #38bdf8;
+}
+
+.status {
+    color: #aab6c8;
+    font-size: 13px;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    margin-right: 7px;
+}
+
+
+
+.stats-section {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px 5%;
+}
+
+.stat-card {
+    background: #111827;
+    border: 1px solid #263244;
+    border-radius: 12px;
+    padding: 22px;
+    color: white;
+}
+
+.stat-card h3 {
+    color: #94a3b8;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.stat-card h2 {
+    font-size: 30px;
+    margin-bottom: 0;
+}
+
+@media (max-width: 650px) {
+    .stats-section {
+        grid-template-columns: 1fr;
+    }
+}
