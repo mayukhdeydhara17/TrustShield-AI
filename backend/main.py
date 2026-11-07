@@ -1,3 +1,4 @@
+from backend.security.website_security import analyze_website_security
 from backend.security.ssl_checker import check_ssl as analyze_ssl
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -163,7 +164,11 @@ def scan_website(request: ScanRequest):
             elif ssl_report["status"] == "expiring_soon":
                 score = min(score + 10, 100)
                 reasons.append(ssl_report["message"])
-
+        website_security = analyze_website_security(request.url, ssl_report)
+        score = min(score + website_security["risk_points"], 100)
+        for issue in website_security["issues"]:
+            if issue["points"] > 0:
+                reasons.append(issue["message"])
         if score >= 60:
             level = "HIGH"
         elif score >= 30:
@@ -177,6 +182,7 @@ def scan_website(request: ScanRequest):
             "phishing_detected": score >= 60,
             "ssl_valid": ssl_valid,
             "ssl_details": ssl_report,
+            "website_security": website_security,
             "security_status": (
                 "Needs attention" if score >= 30 else "No major URL indicators"
             ),
