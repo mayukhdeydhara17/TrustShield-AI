@@ -3,6 +3,9 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import ScanResult from "./components/ScanResult";
 import { scanWebsite } from "./services/scanApi";
+import Dashboard from "./components/Dashboard";
+import ScanHistory from "./components/ScanHistory";
+import RiskChart from "./components/RiskChart";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -103,32 +106,7 @@ function App() {
         <h2>🛡️ TrustShield AI</h2>
         <p>Backend: {backendStatus}</p>
       </nav>
-      <section className="stats-section">
-
-        <div className="stat-card">
-          <h3>Total Scans</h3>
-          <h2>{scanHistory.length}</h2>
-        </div>
-
-        <div className="stat-card">
-          <h3>Suspicious Websites</h3>
-          <h2>
-            {scanHistory.filter(
-              scan => scan.riskLevel === "High"
-            ).length}
-          </h2>
-        </div>
-
-        <div className="stat-card">
-          <h3>Low Risk Websites</h3>
-          <h2>
-            {scanHistory.filter(
-              scan => scan.riskLevel === "Low"
-            ).length}
-          </h2>
-        </div>
-
-      </section>
+      <Dashboard history={scanHistory} />
       <main className="hero">
 
         <p className="tagline">
@@ -187,27 +165,8 @@ function App() {
       </main>
 
       <ScanResult result={result} />
-      <section className="history-section">
-        <h2>Recent Scan History</h2>
-
-        {scanHistory.length === 0 ? (
-          <p>No previous scans yet.</p>
-        ) : (
-          scanHistory.map((scan) => (
-            <div className="history-card" key={scan.id}>
-              <div>
-                <h3>{scan.url}</h3>
-                <small>{scan.scannedAt}</small>
-              </div>
-
-              <div>
-                <strong>{scan.riskScore}/100</strong>
-                <p>{scan.riskLevel}</p>
-              </div>
-            </div>
-          ))
-        )}
-      </section>
+      <RiskChart history={scanHistory} />
+      <ScanHistory history={scanHistory} />
 
     </div>
   );
