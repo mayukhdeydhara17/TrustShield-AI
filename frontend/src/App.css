@@ -1,98 +1,41 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+
+.scanner button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
-body {
-  background: #080d18;
-  color: white;
-  font-family: Arial, sans-serif;
+.error-message {
+  color: #ff6b6b;
+  margin: 15px auto;
+  font-size: 14px;
+}
+.history-section {
+  max-width: 850px;
+  margin: 50px auto;
+  padding: 20px;
 }
 
-.app {
-  min-height: 100vh;
+.history-section h2 {
+  margin-bottom: 20px;
 }
 
-.navbar {
+.history-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 25px 8%;
-  border-bottom: 1px solid #202b40;
-}
-
-.navbar h2 {
-  color: #55d6be;
-}
-
-.navbar p {
-  color: #aab4c8;
-}
-
-.hero {
-  text-align: center;
-  padding: 110px 20px;
-}
-
-.tagline {
-  color: #55d6be;
-  letter-spacing: 3px;
-  margin-bottom: 25px;
-}
-
-.hero h1 {
-  font-size: 52px;
-  line-height: 1.2;
-}
-
-.hero h1 span {
-  color: #55d6be;
-}
-
-.description {
-  color: #aab4c8;
-  max-width: 550px;
-  margin: 25px auto;
-  line-height: 1.7;
-}
-
-.scanner {
-  display: flex;
-  max-width: 650px;
-  margin: 35px auto;
-  gap: 10px;
-}
-
-.scanner input {
-  flex: 1;
-  padding: 16px;
-  border: 1px solid #34415b;
-  border-radius: 8px;
-  background: #111a2b;
+  padding: 18px;
+  margin-bottom: 12px;
+  border: 1px solid #444;
+  border-radius: 12px;
+  background: #171923;
   color: white;
 }
 
-.scanner button {
-  padding: 16px 25px;
-  border: none;
-  border-radius: 8px;
-  background: #55d6be;
-  font-weight: bold;
-  cursor: pointer;
+.history-card h3 {
+  font-size: 16px;
+  margin-bottom: 6px;
 }
 
-.note {
-  color: #748198;
-  font-size: 13px;
-}
-
-@media (max-width: 600px) {
-  .hero h1 {
-    font-size: 36px;
-  }
-
-  .scanner {
-    flex-direction: column;
-  }
+.history-card small {
+  color: #aaa;
 }
