@@ -17,7 +17,7 @@ TrustShield AI checks a website address and tells you how risky it looks. Paste 
 - **Threat intelligence.** Optional reputation checks with Google Safe Browsing and abuse.ch URLhaus, combined into one security assessment (verdict, safety score, grade, findings and recommendations).
 - **Dashboard.** A responsive React interface (laptop and mobile) with a risk-score gauge, scan summary counters, SSL certificate details, domain analysis, a list of security issues, a risk overview, recent scan history, and a **Download Report** button.
 
-## Screenshots
+## Preview
 
 ### Laptop
 
