@@ -15,6 +15,9 @@ from backend.security.ssl_checker import check_ssl as analyze_ssl
 
 
 app = FastAPI(title="TrustShield AI API")
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
 
 
 # CORS configuration
