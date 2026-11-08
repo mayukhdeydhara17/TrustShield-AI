@@ -1,4 +1,4 @@
-from phishing_engine import PhishingDetectionEngine
+from backend.security.phishing_engine import PhishingDetectionEngine
 
 def run_tests():
     test_urls = [

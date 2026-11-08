@@ -62,7 +62,7 @@ function App() {
         url: url.trim(),
         riskScore: data.risk_score,
         riskLevel: data.risk_level,
-        scannedAt: new Date().toLocaleString(),
+        scannedAt: new Date().toISOString(),
       };
 
       setScanHistory((previous) => {

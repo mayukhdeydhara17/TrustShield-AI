@@ -7,7 +7,7 @@ Checks:
   3. Certificate expiry
   4. Returns a certificate status report (dict)
 """
-
+import certifi
 import socket
 import ssl
 from datetime import datetime, timezone
@@ -68,7 +68,9 @@ def check_ssl(url: str, timeout: int = 5) -> dict:
     result["https_available"] = True
 
     # 2. Validate the certificate (default context verifies chain + hostname)
-    context = ssl.create_default_context()
+    context = ssl.create_default_context(
+    cafile=certifi.where()
+)
     try:
         with socket.create_connection((hostname, 443), timeout=timeout) as sock:
             with context.wrap_socket(sock, server_hostname=hostname) as ssock:

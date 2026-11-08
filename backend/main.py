@@ -1,19 +1,37 @@
-from backend.security.website_security import analyze_website_security
-from backend.security.ssl_checker import check_ssl as analyze_ssl
+
+import os
+import socket
+import ipaddress
+
+from urllib.parse import urlparse, urlunparse
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from urllib.parse import urlparse
-import socket
-import ssl
-import ipaddress
+
+from backend.security.phishing_engine import PhishingDetectionEngine
+from backend.security.website_security import analyze_website_security
+from backend.security.ssl_checker import check_ssl as analyze_ssl
+
 
 app = FastAPI(title="TrustShield AI API")
 
-# Allow React frontend to communicate with backend
+
+# CORS configuration
+allowed_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+deployed_frontend = os.getenv("FRONTEND_URL")
+
+if deployed_frontend:
+    allowed_origins.append(deployed_frontend.rstrip("/"))
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,7 +42,18 @@ class ScanRequest(BaseModel):
     url: str
 
 
-def validate_url(url):
+# STEP 1: Normalize and validate URL
+def validate_url(url: str):
+
+    url = url.strip()
+
+    if not url:
+        raise ValueError("Please enter a website URL.")
+
+    # Add HTTPS if scheme is missing
+    if "://" not in url:
+        url = "https://" + url
+
     parsed = urlparse(url)
 
     if parsed.scheme not in ["http", "https"]:
@@ -36,9 +65,19 @@ def validate_url(url):
     if parsed.username or parsed.password:
         raise ValueError("URLs containing credentials are not allowed.")
 
-    host = parsed.hostname
+    host = parsed.hostname.lower()
 
-    if host.lower() == "localhost":
+    # Validate port
+    try:
+        port = parsed.port
+    except ValueError:
+        raise ValueError("Invalid port number.")
+
+    if port not in [None, 80, 443]:
+        raise ValueError("Only standard HTTP and HTTPS ports are allowed.")
+
+    # Block local addresses
+    if host == "localhost" or host.endswith(".localhost"):
         raise ValueError("Local addresses cannot be scanned.")
 
     try:
@@ -46,146 +85,154 @@ def validate_url(url):
     except socket.gaierror:
         raise ValueError("Website domain could not be resolved.")
 
-    # Block private, loopback and reserved IP addresses
+    # Block private and restricted IP addresses
     for address in addresses:
         ip = ipaddress.ip_address(address[4][0])
 
         if not ip.is_global:
-            raise ValueError("Private or restricted addresses are blocked.")
-
-    return host
-
-
-def check_ssl(host):
-    try:
-        addresses = socket.getaddrinfo(
-            host, 443, type=socket.SOCK_STREAM
-        )
-
-        context = ssl.create_default_context()
-
-        for address in addresses:
-            ip = ipaddress.ip_address(address[4][0])
-
-            if not ip.is_global:
-                continue
-
-            connection = socket.socket(
-                address[0], address[1], address[2]
+            raise ValueError(
+                "Private or restricted addresses are blocked."
             )
-            connection.settimeout(4)
 
-            try:
-                connection.connect((address[4][0], 443))
+    normalized_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path or "/",
+            parsed.params,
+            parsed.query,
+            parsed.fragment
+        )
+    )
 
-                with context.wrap_socket(
-                    connection, server_hostname=host
-                ):
-                    return True
-
-            except (OSError, ssl.SSLError):
-                connection.close()
-
-        return False
-
-    except Exception:
-        return False
-
-
-def analyze_url(url, host):
-    score = 0
-    reasons = []
-
-    suspicious_words = [
-        "login", "verify", "account", "password",
-        "secure", "banking", "update", "confirm"
-    ]
-
-    lowered = url.lower()
-
-    for word in suspicious_words:
-        if word in lowered:
-            score += 10
-            reasons.append(f"Contains suspicious keyword: {word}")
-
-    if "@" in url:
-        score += 25
-        reasons.append("Contains an unusual @ symbol.")
-
-    if len(url) > 100:
-        score += 10
-        reasons.append("Unusually long URL.")
-
-    if host.count(".") > 3:
-        score += 15
-        reasons.append("Contains multiple subdomains.")
-
-    try:
-        ipaddress.ip_address(host)
-        score += 30
-        reasons.append("Uses an IP address instead of a domain.")
-    except ValueError:
-        pass
-
-    if host.startswith("xn--"):
-        score += 20
-        reasons.append("Uses an internationalized domain encoding.")
-
-    return min(score, 100), reasons
+    return normalized_url, host
 
 
 @app.get("/")
 def home():
-    return {"message": "TrustShield AI backend is working!"}
+    return {
+        "message": "TrustShield AI backend is working!"
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy"
+    }
 
 
+# STEP 2: Main website scanning endpoint
 @app.post("/scan")
 def scan_website(request: ScanRequest):
 
     try:
-        host = validate_url(request.url)
-        score, reasons = analyze_url(request.url, host)
 
+        # Normalize and validate URL
+        normalized_url, host = validate_url(request.url)
+
+        parsed = urlparse(normalized_url)
+
+        # STEP 3: Phishing detection engine
+        engine = PhishingDetectionEngine(normalized_url)
+
+        phishing_report = engine.generate_risk_assessment()
+
+        score = phishing_report["risk_score"]
+
+        reasons = phishing_report["reasons"].copy()
+
+        # STEP 4: SSL assessment
         ssl_valid = None
         ssl_report = None
 
-        if urlparse(request.url).scheme == "https":
-            ssl_report = analyze_ssl(host)
+        if parsed.scheme == "https":
+
+            ssl_report = analyze_ssl(normalized_url)
+
             ssl_valid = ssl_report["ssl_valid"]
 
-            if ssl_report["status"] in ["invalid", "expired", "no_https", "error"]:
-                score = min(score + 25, 100)
-                reasons.append(f"SSL problem: {ssl_report['message']}")
+            if ssl_report["status"] in [
+                "invalid",
+                "expired",
+                "no_https",
+                "error"
+            ]:
+
+                score += 25
+
+                reasons.append(
+                    f"SSL problem: {ssl_report['message']}"
+                )
+
             elif ssl_report["status"] == "expiring_soon":
-                score = min(score + 10, 100)
-                reasons.append(ssl_report["message"])
-        website_security = analyze_website_security(request.url, ssl_report)
-        score = min(score + website_security["risk_points"], 100)
+
+                score += 10
+
+                reasons.append(
+                    ssl_report["message"]
+                )
+
+        else:
+
+            # HTTP does not provide encrypted transport
+            score += 10
+
+            reasons.append(
+                "Website uses HTTP instead of encrypted HTTPS."
+            )
+
+        # STEP 5: Website security assessment
+        website_security = analyze_website_security(
+            normalized_url,
+            ssl_report
+        )
+
+        score += website_security["risk_points"]
+
         for issue in website_security["issues"]:
+
             if issue["points"] > 0:
                 reasons.append(issue["message"])
+
+        # Keep score within 0-100
+        score = min(score, 100)
+
+        # STEP 6: Calculate final risk level
         if score >= 60:
             level = "HIGH"
+
         elif score >= 30:
             level = "MEDIUM"
+
         else:
             level = "LOW"
 
+        # STEP 7: Final scan report
         return {
+
+            "url": normalized_url,
+
             "risk_score": score,
+
             "risk_level": level,
+
             "phishing_detected": score >= 60,
+
             "ssl_valid": ssl_valid,
+
             "ssl_details": ssl_report,
+
             "website_security": website_security,
+
+            "phishing_analysis": phishing_report,
+
             "security_status": (
-                "Needs attention" if score >= 30 else "No major URL indicators"
+                "Needs attention"
+                if score >= 30
+                else "No major URL indicators"
             ),
+
             "explanation": (
                 "; ".join(reasons)
                 if reasons
@@ -194,4 +241,16 @@ def scan_website(request: ScanRequest):
         }
 
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error))
+
+        raise HTTPException(
+            status_code=400,
+            detail=str(error)
+        )
+
+    except Exception:
+
+        # Avoid exposing internal server details
+        raise HTTPException(
+            status_code=500,
+            detail="An unexpected error occurred during website analysis."
+        )
