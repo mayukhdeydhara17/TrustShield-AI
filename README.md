@@ -262,9 +262,9 @@ It scans a valid site, expired and wrong-host certificates, plain HTTP, an IP ad
 
 | Member | Area |
 |---|---|
-| Mayukh Dey Dhara | Phishing detection engine (URL analysis, phishing intelligence) |
+| Mayukh Dey Dhara | Frontend, Backend, dashboard and integration |
 | Neevv Khillan | SSL, website security and threat intelligence |
-| Lakshya Jha | Frontend, dashboard and integration |
+| Lakshya Jha | Phishing detection engine (URL analysis, phishing intelligence)|
 
 ## Roadmap
 
