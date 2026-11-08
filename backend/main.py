@@ -40,6 +40,30 @@ app.add_middleware(
 
 class ScanRequest(BaseModel):
     url: str
+    
+SSL_FALLBACK = {
+    "https_available": False,
+    "ssl_valid": False,
+    "status": "unavailable",
+    "message": "SSL check could not be completed.",
+}
+
+WEBSITE_SECURITY_FALLBACK = {
+    "issues": [],
+    "errors": ["unavailable"],
+    "risk_points": 0,
+    "rating": "UNKNOWN",
+    "summary": "Website security analysis unavailable.",
+}
+
+
+def run_safely(function, fallback, *args):
+    """Run an analysis step; if it crashes, return a fallback so /scan still works."""
+    try:
+        return function(*args)
+    except Exception as error:
+        print(f"[TrustShield] {function.__name__} failed: {error}")
+        return fallback
 
 
 # STEP 1: Normalize and validate URL
@@ -148,7 +172,7 @@ def scan_website(request: ScanRequest):
 
         if parsed.scheme == "https":
 
-            ssl_report = analyze_ssl(normalized_url)
+            ssl_report = run_safely(analyze_ssl, SSL_FALLBACK, normalized_url)
 
             ssl_valid = ssl_report["ssl_valid"]
 
@@ -183,7 +207,9 @@ def scan_website(request: ScanRequest):
             )
 
         # STEP 5: Website security assessment
-        website_security = analyze_website_security(
+            website_security = run_safely(
+            analyze_website_security,
+            WEBSITE_SECURITY_FALLBACK,
             normalized_url,
             ssl_report
         )
