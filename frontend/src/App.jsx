@@ -109,8 +109,15 @@ function App() {
     <div className="app">
 
       <nav className="navbar">
-        <h2>🛡️ TrustShield AI</h2>
-        <p>Backend: {backendStatus}</p>
+        <div className="brand">
+          <span className="brand-icon">🛡️</span>
+          <h2>TrustShield AI</h2>
+        </div>
+
+        <div className={`status ${backendStatus.replace(/\W/g, "").toLowerCase()}`}>
+          <span className="status-dot"></span>
+          Backend: {backendStatus}
+        </div>
       </nav>
       <Dashboard history={scanHistory} />
       <main className="hero">
