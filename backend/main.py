@@ -1,4 +1,4 @@
-
+import logging
 import os
 import socket
 import ipaddress
@@ -206,8 +206,8 @@ def scan_website(request: ScanRequest):
                 "Website uses HTTP instead of encrypted HTTPS."
             )
 
-        # STEP 5: Website security assessment
-            website_security = run_safely(
+                # STEP 5: Website security assessment
+        website_security = run_safely(
             analyze_website_security,
             WEBSITE_SECURITY_FALLBACK,
             normalized_url,
@@ -217,7 +217,6 @@ def scan_website(request: ScanRequest):
         score += website_security["risk_points"]
 
         for issue in website_security["issues"]:
-
             if issue["points"] > 0:
                 reasons.append(issue["message"])
 
@@ -274,9 +273,9 @@ def scan_website(request: ScanRequest):
         )
 
     except Exception:
+        logging.exception("TRUSTSHIELD SCAN ERROR")
 
-        # Avoid exposing internal server details
         raise HTTPException(
             status_code=500,
             detail="An unexpected error occurred during website analysis."
-        )
+        )    
