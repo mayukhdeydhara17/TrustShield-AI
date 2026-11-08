@@ -25,6 +25,10 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from backend.security.safe_network import (
+    open_safe_connection,
+    SafeNetworkError,
+)
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
@@ -71,14 +75,129 @@ STAGE_TIMEOUT = 15  # seconds to wait for any single stage
 _RDAP_BOOTSTRAP = {}  # cache of IANA's TLD -> RDAP server list
 
 
-def _http_get_json(url: str, timeout: int = 4, headers: dict = None):
-    """GET a JSON document over HTTPS (small, bounded read)."""
-    request_headers = {"User-Agent": "TrustShield-AI/1.0", "Accept": "application/json"}
+
+def _http_get_json(
+    url: str,
+    timeout: int = 4,
+    headers: dict = None
+):
+    """Fetch a bounded JSON response using validated HTTPS connections."""
+
+    request_headers = {
+        "User-Agent": "TrustShield-AI/1.0",
+        "Accept": "application/json",
+        "Accept-Encoding": "identity",
+        "Connection": "close",
+    }
+
     if headers:
         request_headers.update(headers)
-    request = urllib.request.Request(url, headers=request_headers)
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read(2_000_000).decode("utf-8"))
+
+    current_url = url
+
+    # Allow a small number of HTTPS redirects.
+    for redirect_count in range(4):
+
+        parsed = urllib.parse.urlsplit(current_url)
+
+        if parsed.scheme.lower() != "https":
+            raise SafeNetworkError("Only HTTPS requests are allowed.")
+
+        if not parsed.hostname:
+            raise SafeNetworkError("Invalid request hostname.")
+
+        if parsed.username or parsed.password:
+            raise SafeNetworkError("URL credentials are not allowed.")
+
+        try:
+            port = parsed.port or 443
+        except ValueError:
+            raise SafeNetworkError("Invalid request port.")
+
+        if port != 443:
+            raise SafeNetworkError("Only HTTPS port 443 is allowed.")
+
+        hostname = parsed.hostname
+
+        path = parsed.path or "/"
+
+        if parsed.query:
+            path += "?" + parsed.query
+
+        if any(ord(char) < 32 for char in path):
+            raise SafeNetworkError("Invalid request path.")
+
+        connection = None
+        response = None
+
+        try:
+            connection = open_safe_connection(
+                hostname,
+                443,
+                timeout=timeout,
+                use_tls=True,
+            )
+
+            connection.sendall(
+                (
+                    f"GET {path} HTTP/1.1\r\n"
+                    f"Host: {hostname}\r\n"
+                    + "".join(
+                        f"{key}: {value}\r\n"
+                        for key, value in request_headers.items()
+                    )
+                    + "\r\n"
+                ).encode("ascii")
+            )
+
+            response = http.client.HTTPResponse(connection)
+            response.begin()
+
+            # Handle redirects manually so every new host is validated.
+            if response.status in (301, 302, 303, 307, 308):
+
+                location = response.getheader("Location")
+
+                if not location:
+                    raise SafeNetworkError(
+                        "Redirect response has no destination."
+                    )
+
+                if redirect_count == 3:
+                    raise SafeNetworkError(
+                        "Too many HTTPS redirects."
+                    )
+
+                current_url = urllib.parse.urljoin(
+                    current_url,
+                    location
+                )
+
+                continue
+
+            if response.status < 200 or response.status >= 300:
+                raise SafeNetworkError(
+                    f"Remote server returned HTTP {response.status}."
+                )
+
+            body = response.read(2_000_001)
+
+            if len(body) > 2_000_000:
+                raise SafeNetworkError(
+                    "Response exceeded the allowed size."
+                )
+
+            return json.loads(body.decode("utf-8"))
+
+        finally:
+            if response is not None:
+                response.close()
+
+            if connection is not None:
+                connection.close()
+
+    raise SafeNetworkError("HTTPS request could not be completed.")
+
 
 
 # ------------------------------------------------------------ DNS analysis
@@ -123,7 +242,12 @@ def query_dns(name: str, record_type: str, timeout: int = 4):
         try:
             query = urllib.parse.urlencode({"name": name, "type": record_type})
             data = _http_get_json(endpoint + "?" + query, timeout, headers)
-        except (OSError, ValueError, http.client.HTTPException):
+        except (
+    OSError,
+    ValueError,
+    http.client.HTTPException,
+    SafeNetworkError,
+):
             continue
         return [
             str(answer.get("data", "")).strip().rstrip(".").strip('"')
@@ -336,8 +460,10 @@ def get_domain_age(registered_domain: str, timeout: int = 4):
 
 
 # ------------------------------------------------------------- Web security
+
 def check_web_security(hostname: str, timeout: int = 4) -> dict:
-    """Check security headers and HTTP -> HTTPS redirect (no redirects followed)."""
+    """Check HTTP and HTTPS headers using validated public IP connections."""
+
     result = {
         "headers_checked": False,
         "headers_present": [],
@@ -345,33 +471,109 @@ def check_web_security(hostname: str, timeout: int = 4) -> dict:
         "http_redirects_to_https": None,
     }
 
+    hostname = hostname.strip().rstrip(".")
+
+    if not hostname:
+        return result
+
+    host_header = f"[{hostname}]" if ":" in hostname else hostname
+
+    def make_head_request(port: int, use_tls: bool):
+        connection = None
+        response = None
+
+        try:
+            connection = open_safe_connection(
+                hostname,
+                port,
+                timeout=timeout,
+                use_tls=use_tls,
+            )
+
+            request = (
+                "HEAD / HTTP/1.1\r\n"
+                f"Host: {host_header}\r\n"
+                "User-Agent: TrustShield-AI/1.0\r\n"
+                "Connection: close\r\n"
+                "\r\n"
+            )
+
+            connection.sendall(request.encode("ascii"))
+
+            response = http.client.HTTPResponse(connection)
+            response.begin()
+
+            return (
+                response.status,
+                dict(response.getheaders()),
+            )
+
+        finally:
+            if response is not None:
+                response.close()
+
+            if connection is not None:
+                connection.close()
+
+    # HTTPS security headers
     try:
-        conn = http.client.HTTPSConnection(
-            hostname, 443, timeout=timeout, context=ssl.create_default_context())
-        conn.request("HEAD", "/", headers={"User-Agent": "TrustShield-AI/1.0"})
-        headers = {k.lower() for k, _ in conn.getresponse().getheaders()}
-        conn.close()
+        _, headers = make_head_request(443, True)
+
+        normalized_headers = {
+            key.lower() for key in headers
+        }
+
         result["headers_checked"] = True
+
         for key, label in SECURITY_HEADERS.items():
-            (result["headers_present"] if key in headers
-             else result["headers_missing"]).append(label)
-    except (OSError, ssl.SSLError, http.client.HTTPException, UnicodeError):
+            target = (
+                result["headers_present"]
+                if key in normalized_headers
+                else result["headers_missing"]
+            )
+
+            target.append(label)
+
+    except (
+        SafeNetworkError,
+        OSError,
+        ssl.SSLError,
+        http.client.HTTPException,
+        UnicodeError,
+    ):
         pass
 
+    # HTTP -> HTTPS redirect check
     try:
-        conn = http.client.HTTPConnection(hostname, 80, timeout=timeout)
-        conn.request("HEAD", "/", headers={"User-Agent": "TrustShield-AI/1.0"})
-        resp = conn.getresponse()
-        location = resp.getheader("Location") or ""
-        conn.close()
-        result["http_redirects_to_https"] = (
-            resp.status in (301, 302, 307, 308)
-            and location.lower().startswith("https://")
+        status, headers = make_head_request(80, False)
+
+        location = next(
+            (
+                value
+                for key, value in headers.items()
+                if key.lower() == "location"
+            ),
+            "",
         )
-    except (OSError, http.client.HTTPException, UnicodeError):
+
+        parsed_location = urllib.parse.urlparse(location)
+
+        result["http_redirects_to_https"] = (
+            status in (301, 302, 307, 308)
+            and parsed_location.scheme.lower() == "https"
+            and bool(parsed_location.hostname)
+        )
+
+    except (
+        SafeNetworkError,
+        OSError,
+        http.client.HTTPException,
+        UnicodeError,
+    ):
         pass
 
     return result
+
 
 
 # ------------------------------------------------------------------- Issues
