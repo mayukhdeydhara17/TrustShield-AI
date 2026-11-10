@@ -78,7 +78,6 @@ Every analysis step is isolated. If one check fails or times out, the scan still
 TrustShield-AI/
 ├── backend/
 │   ├── main.py                    FastAPI app and /scan endpoint
-│   ├── requirement.txt            Python dependencies
 │   ├── security/
 │   │   ├── phishing_engine.py     URL-based phishing detection
 │   │   ├── ssl_checker.py         SSL certificate analysis
@@ -93,6 +92,7 @@ TrustShield-AI/
 │       ├── App.jsx
 │       ├── components/            Dashboard, Navbar, ScanResult, RiskChart, ScanHistory
 │       └── services/
+├── requirements.txt            Python dependencies
 └── README.md
 ```
 
@@ -120,7 +120,7 @@ python -m venv venv
 venv\Scripts\activate            # Windows
 # source venv/bin/activate       # macOS / Linux
 
-pip install -r backend/requirement.txt
+pip install -r requirements.txt
 uvicorn backend.main:app --reload
 ```
 
