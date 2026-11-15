@@ -2,44 +2,65 @@ import { useCallback, useState } from "react";
 import AttackField from "./AttackField";
 import "./SignIn.css";
 
-const ACTIONS = ["blocked", "quarantined", "sandboxed", "flagged"];
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 export default function SignIn() {
   const [signUp, setSignUp] = useState(false);
   const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [msg, setMsg] = useState({ text: "", ok: false });
   const [log, setLog] = useState([
-    { id: 1, text: "paypa1-secure-login.com", blocked: false },
-    { id: 2, text: "SQL injection", blocked: true, act: "blocked" },
+    { id: 1, text: "Suspicious login attempt", blocked: true },
+    { id: 2, text: "Malicious redirect", blocked: true },
   ]);
   const [count, setCount] = useState(1284);
-
   const onEvent = useCallback((text, blocked) => {
-    setLog((l) => [...l.slice(-5), { id: Math.random(), text, blocked, act: ACTIONS[(Math.random() * 4) | 0] }]);
+    setLog((items) => [...items.slice(-3), { id: `${Date.now()}-${Math.random()}`, text, blocked }]);
   }, []);
-  const onBlock = useCallback(() => setCount((n) => n + 1), []);
+  const onBlock = useCallback(() => setCount((value) => value + 1), []);
+  const set = (key) => (event) => setForm((previous) => ({ ...previous, [key]: event.target.value }));
 
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  async function submit(event) {
+    event.preventDefault();
+    setMsg({ text: "", ok: false });
+    const name = form.name.trim();
+    const email = form.email.trim().toLowerCase();
+    if (signUp && !name) return setMsg({ text: "Enter your full name.", ok: false });
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setMsg({ text: "Enter a valid email address.", ok: false });
+    if (signUp && form.password.length < 8) return setMsg({ text: "Use at least 8 characters for your password.", ok: false });
+    if (!signUp && !form.password) return setMsg({ text: "Enter your password.", ok: false });
 
-  function submit(e) {
-    e.preventDefault();
-    const { name, email, password } = form;
-    if (signUp && !name.trim()) return setMsg({ text: "Enter your full name.", ok: false });
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) return setMsg({ text: "Enter a valid email address.", ok: false });
-    if (signUp ? password.length < 8 : !password) return setMsg({ text: signUp ? "Use at least 8 characters for your password." : "Enter your password.", ok: false });
-    // TODO: replace with your real auth call (e.g. POST `${import.meta.env.VITE_API_URL}/auth/...`)
-    localStorage.setItem("trustshield_user", JSON.stringify({ name: name.trim(), email: email.trim() }));
-    setMsg({ text: signUp ? "Account created." : "Signed in. Redirecting…", ok: true });
-    setTimeout(() => { window.location.hash = ""; }, 900);
+    setBusy(true);
+    try {
+      const response = await fetch(`${API_URL}/auth/${signUp ? "signup" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signUp
+          ? { name, email, password: form.password }
+          : { email, password: form.password }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.detail || "Authentication failed. Please try again.");
+      localStorage.setItem("trustshield_access_token", data.access_token);
+      localStorage.setItem("trustshield_user", JSON.stringify(data.user));
+      setMsg({ text: signUp ? "Account created successfully. Redirecting…" : "Signed in successfully. Redirecting…", ok: true });
+      window.setTimeout(() => { window.location.hash = ""; }, 500);
+    } catch (error) {
+      setMsg({
+        text: error instanceof TypeError
+          ? "Can't reach the server. Start the TrustShield backend and try again."
+          : error.message,
+        ok: false,
+      });
+    } finally {
+      setBusy(false);
+    }
   }
-
-  function social(p) { setMsg({ text: `Connecting to ${p}…`, ok: true }); }
 
   return (
     <div className="signin">
       <AttackField onEvent={onEvent} onBlock={onBlock} />
-
       <main className="signin-wrap">
         <section className="signin-left">
           <a className="signin-brand" href="#">
@@ -49,11 +70,11 @@ export default function SignIn() {
           <div>
             <h1>Every attack<br />stops at the <em>door.</em></h1>
             <p className="signin-sub">Sign in to keep your link scans and security reports in one place.</p>
-            <div className="signin-log">
-              {log.map((r) => (
-                <div key={r.id}>
-                  <b className={r.blocked ? "k" : "x"}>{r.blocked ? r.act : "incoming"}</b>
-                  <span>{r.text}</span>
+            <div className="signin-log" aria-live="off">
+              {log.map((item) => (
+                <div key={item.id}>
+                  <b className={item.blocked ? "k" : "x"}>{item.blocked ? "blocked" : "incoming"}</b>
+                  <span>{item.text}</span>
                 </div>
               ))}
             </div>
@@ -61,38 +82,44 @@ export default function SignIn() {
         </section>
 
         <section className="signin-card">
-          <div className="signin-tabs" role="tablist">
-            <button role="tab" aria-selected={!signUp} onClick={() => { setSignUp(false); setMsg({ text: "" }); }}>Sign in</button>
-            <button role="tab" aria-selected={signUp} onClick={() => { setSignUp(true); setMsg({ text: "" }); }}>Create account</button>
+          <div className="signin-tabs" role="tablist" aria-label="Authentication">
+            <button type="button" role="tab" aria-selected={!signUp} onClick={() => { setSignUp(false); setMsg({ text: "", ok: false }); }}>Sign in</button>
+            <button type="button" role="tab" aria-selected={signUp} onClick={() => { setSignUp(true); setMsg({ text: "", ok: false }); }}>Create account</button>
           </div>
           <h2>{signUp ? "Create your account" : "Welcome back"}</h2>
-          <p className="signin-note">Read our <a href="#privacy">Privacy Policy</a> and <a href="#terms">Terms of Service</a> before continuing.</p>
-
-          <div className="signin-soc">
-            <button type="button" onClick={() => social("Google")}>Continue with Google</button>
-            <button type="button" onClick={() => social("GitHub")}>Continue with GitHub</button>
-          </div>
-          <div className="signin-or">or with email</div>
+          <p className="signin-note">Your account keeps your TrustShield experience together.</p>
+          <div className="signin-or">secure email authentication</div>
 
           <form onSubmit={submit} noValidate>
             {signUp && (
-              <div className="signin-f"><label htmlFor="su-name">Full name</label>
-                <input id="su-name" autoComplete="name" placeholder="Ada Lovelace" value={form.name} onChange={set("name")} /></div>
+              <div className="signin-f">
+                <label htmlFor="su-name">Full name</label>
+                <input id="su-name" autoComplete="name" placeholder="Your full name" value={form.name} onChange={set("name")} />
+              </div>
             )}
-            <div className="signin-f"><label htmlFor="su-email">Email</label>
-              <input id="su-email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set("email")} /></div>
             <div className="signin-f">
-              <label htmlFor="su-pw">Password {!signUp && <a href="#reset">Forgot?</a>}</label>
-              <input id="su-pw" type={show ? "text" : "password"} autoComplete={signUp ? "new-password" : "current-password"} placeholder={signUp ? "At least 8 characters" : "Your password"} value={form.password} onChange={set("password")} />
-              <button type="button" className="signin-eye" onClick={() => setShow(!show)}>{show ? "Hide" : "Show"}</button>
+              <label htmlFor="su-email">Email</label>
+              <input id="su-email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set("email")} />
             </div>
-            <p className={`signin-msg ${msg.ok ? "ok" : ""}`} role="status">{msg.text}</p>
-            <button className="signin-go" type="submit">{signUp ? "Create account" : "Sign in"}</button>
+            <div className="signin-f">
+              <label htmlFor="su-pw">Password</label>
+              <input id="su-pw" type={show ? "text" : "password"} autoComplete={signUp ? "new-password" : "current-password"} placeholder={signUp ? "At least 8 characters" : "Your password"} value={form.password} onChange={set("password")} />
+              <button type="button" className="signin-eye" onClick={() => setShow((value) => !value)}>{show ? "Hide" : "Show"}</button>
+            </div>
+            <p className={`signin-msg ${msg.ok ? "ok" : ""}`} role="status" aria-live="polite">{msg.text}</p>
+            <button className="signin-go" type="submit" disabled={busy}>
+              {busy ? "Please wait…" : signUp ? "Create account" : "Sign in"}
+            </button>
           </form>
-          <p className="signin-alt"><a href="#magic">Use a magic link</a><a href="#">Continue without an account</a></p>
+          <p className="signin-alt">
+            <a href="#" onClick={(event) => { event.preventDefault(); setSignUp((value) => !value); setMsg({ text: "Switch between sign in and account creation to continue.", ok: true }); }}>
+              {signUp ? "Already have an account? Sign in" : "New to TrustShield? Create account"}
+            </a>
+            <a href="#top">Back to home</a>
+          </p>
         </section>
       </main>
-      <div className="signin-stat">threats blocked today <b>{count.toLocaleString()}</b></div>
+      <div className="signin-stat">threats blocked <b>{count.toLocaleString()}</b></div>
     </div>
   );
 }

@@ -2,19 +2,24 @@ import logging
 import os
 import socket
 import ipaddress
+import json
+import sqlite3
 
 from urllib.parse import urlparse, urlunparse
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from backend.security.phishing_engine import PhishingDetectionEngine
 from backend.security.website_security import analyze_website_security
 from backend.security.ssl_checker import check_ssl as analyze_ssl
+from backend.auth import router as auth_router, init_auth_db, current_user, db
 
 
 app = FastAPI(title="TrustShield AI API")
+init_auth_db()
+app.include_router(auth_router)
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
@@ -151,7 +156,7 @@ def health():
 
 # STEP 2: Main website scanning endpoint
 @app.post("/scan")
-def scan_website(request: ScanRequest):
+def scan_website(request: ScanRequest, user=Depends(current_user)):
 
     try:
 
@@ -237,36 +242,25 @@ def scan_website(request: ScanRequest):
             level = "LOW"
 
         # STEP 7: Final scan report
-        return {
-
+        report = {
             "url": normalized_url,
-
             "risk_score": score,
-
             "risk_level": level,
-
             "phishing_detected": score >= 60,
-
             "ssl_valid": ssl_valid,
-
             "ssl_details": ssl_report,
-
             "website_security": website_security,
-
             "phishing_analysis": phishing_report,
-
-            "security_status": (
-                "Needs attention"
-                if score >= 30
-                else "No major URL indicators"
-            ),
-
-            "explanation": (
-                "; ".join(reasons)
-                if reasons
-                else "No suspicious URL indicators were detected."
-            )
+            "security_status": "Needs attention" if score >= 30 else "No major URL indicators",
+            "explanation": "; ".join(reasons) if reasons else "No suspicious URL indicators were detected.",
         }
+        with db() as conn:
+            conn.execute(
+                "INSERT INTO scans (user_id, url, risk_score, risk_level, report_json) VALUES (?, ?, ?, ?, ?)",
+                (user["id"], normalized_url, score, level, json.dumps(report)),
+            )
+            conn.commit()
+        return report
 
     except ValueError as error:
 
@@ -282,3 +276,24 @@ def scan_website(request: ScanRequest):
             status_code=500,
             detail="An unexpected error occurred during website analysis."
         )    
+
+
+@app.get("/scans")
+def get_scan_history(user=Depends(current_user)):
+    """Return only the signed-in user's scan history."""
+    with db() as conn:
+        rows = conn.execute(
+            "SELECT id, url, risk_score, risk_level, scanned_at, report_json FROM scans WHERE user_id = ? ORDER BY scanned_at DESC, id DESC LIMIT 500",
+            (user["id"],),
+        ).fetchall()
+    history = []
+    for row in rows:
+        history.append({
+            "id": row["id"],
+            "url": row["url"],
+            "riskScore": row["risk_score"],
+            "riskLevel": row["risk_level"],
+            "scannedAt": row["scanned_at"],
+            "report": json.loads(row["report_json"]),
+        })
+    return {"history": history}

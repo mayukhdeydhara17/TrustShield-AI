@@ -2,7 +2,7 @@ import Navbar from "./components/Navbar";
 import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 import ScanResult from "./components/ScanResult";
-import { scanWebsite } from "./services/scanApi";
+import { scanWebsite, fetchScanHistory } from "./services/scanApi";
 import Dashboard from "./components/Dashboard";
 import ScanHistory from "./components/ScanHistory";
 import RiskChart from "./components/RiskChart";
@@ -12,18 +12,11 @@ import LiveDemo from "./components/LiveDemo";
 import SignIn from "./components/SignIn";
 import { EvidenceGraph, Story, Steps, Views, Cases, Cta, Footer } from "./components/Landing";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 function App() {
-  const [scanHistory, setScanHistory] = useState(() => {
-    try {
-      return JSON.parse(
-        localStorage.getItem("trustshield_scan_history") || "[]"
-      );
-    } catch {
-      return [];
-    }
-  });
+  const [scanHistory, setScanHistory] = useState([]);
+  const [account, setAccount] = useState(null);
   const [url, setUrl] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -37,6 +30,58 @@ function App() {
     window.addEventListener("hashchange", on);
     return () => window.removeEventListener("hashchange", on);
   }, []);
+
+  // Validate the saved session and load history belonging only to that account.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadAccount() {
+      const token = localStorage.getItem("trustshield_access_token");
+      if (!token) {
+        setAccount(null);
+        setScanHistory([]);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) throw new Error("Session expired");
+        const user = await response.json();
+        const history = await fetchScanHistory(token);
+        if (!cancelled) {
+          setAccount(user);
+          setScanHistory(history);
+          localStorage.setItem("trustshield_user", JSON.stringify(user));
+        }
+      } catch {
+        localStorage.removeItem("trustshield_access_token");
+        localStorage.removeItem("trustshield_user");
+        if (!cancelled) {
+          setAccount(null);
+          setScanHistory([]);
+        }
+      }
+    }
+    loadAccount();
+    return () => { cancelled = true; };
+  }, [route]);
+
+  async function handleLogout() {
+    const token = localStorage.getItem("trustshield_access_token");
+    try {
+      if (token) await fetch(`${API_URL}/auth/logout`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } finally {
+      localStorage.removeItem("trustshield_access_token");
+      localStorage.removeItem("trustshield_user");
+      setAccount(null);
+      setScanHistory([]);
+      setResult(null);
+      window.location.hash = "#/sign-in";
+    }
+  }
 
   // Check backend connection
   useEffect(() => {
@@ -59,6 +104,12 @@ function App() {
 
   // Scan website
   async function handleScan() {
+    const token = localStorage.getItem("trustshield_access_token");
+    if (!account || !token) {
+      setError("Please sign in to save scans to your personal history.");
+      window.location.hash = "#/sign-in";
+      return;
+    }
     if (!url.trim()) {
       setError("Please enter a website URL.");
       return;
@@ -69,26 +120,7 @@ function App() {
     setResult(null);
 
     try {
-      const data = await scanWebsite(url.trim());
-      const newScan = {
-        id: Date.now(),
-        url: url.trim(),
-        riskScore: data.risk_score,
-        riskLevel: data.risk_level,
-        scannedAt: new Date().toISOString(),
-      };
-
-      setScanHistory((previous) => {
-        const updated = [newScan, ...previous];
-
-        localStorage.setItem(
-          "trustshield_scan_history",
-          JSON.stringify(updated)
-        );
-
-        return updated;
-      });
-
+      const data = await scanWebsite(url.trim(), token);
       setResult({
         url: url.trim(),
         scannedAt: new Date().toLocaleString(),
@@ -111,6 +143,15 @@ function App() {
         explanation: data.explanation,
       });
 
+      // The POST /scan response means the backend completed and saved the scan.
+      // Refresh history separately so a history-fetch error does not hide the result.
+      try {
+        const savedHistory = await fetchScanHistory(token);
+        setScanHistory(savedHistory);
+      } catch (historyError) {
+        setError(`Scan completed, but history could not be refreshed: ${historyError.message}`);
+      }
+
     } catch (err) {
       setError(err.message);
     } finally {
@@ -126,7 +167,7 @@ function App() {
         <CyberBackground />
         <ThreatBackdrop />
       </Suspense>
-      <Navbar backendStatus={backendStatus} />
+      <Navbar backendStatus={backendStatus} account={account} onLogout={handleLogout} />
 
       <main className="hero">
         <p className="tagline">YOUR DIGITAL SAFETY STARTS HERE</p>
@@ -162,6 +203,7 @@ function App() {
         {loading && <p className="note">Analyzing website security...</p>}
         {error && <p className="error-message">{error}</p>}
         <p className="note">Passive checks. Stay alert. Stay protected.</p>
+        {!account && <p className="note">Sign in to scan websites and save your scan history to your account.</p>}
 
         <EvidenceGraph />
       </main>

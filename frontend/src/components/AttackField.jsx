@@ -23,12 +23,12 @@ export default function AttackField({ onEvent, onBlock }) {
     const c = cv.getContext("2d");
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-    let W, H, cx, cy, R, raf, last = 0, t0 = 0;
+    let W, H, cx, cy, R, raf, last = 0, t0 = 0, lastFrame = 0;
     const COL = { acc: css("--orange-hi") || "#E6701A", bad: css("--danger") || "#E5604A", ok: css("--safe") || "#86B35A", mute: css("--muted") || "#A89A86" };
     const narrow = () => innerWidth <= 900;
 
     function size() {
-      const d = Math.min(devicePixelRatio || 1, 2);
+      const d = Math.min(devicePixelRatio || 1, 1.25);
       W = innerWidth; H = innerHeight;
       cv.width = W * d; cv.height = H * d;
       c.setTransform(d, 0, 0, d, 0, 0);
@@ -38,17 +38,25 @@ export default function AttackField({ onEvent, onBlock }) {
     }
     size();
     addEventListener("resize", size);
+    const onVisibility = () => {
+      if (document.hidden) cancelAnimationFrame(raf);
+      else { t0 = 0; lastFrame = 0; raf = requestAnimationFrame(frame); }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
-    const stars = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.2, p: Math.random() * 6 }));
+    const stars = Array.from({ length: 48 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.3 + 0.2, p: Math.random() * 6 }));
     const atk = [], fx = [];
 
     function spawn() {
       const a = Math.random() * Math.PI * 2, d = Math.max(W, H) * 0.62;
+      if (atk.length >= 10) return;
       atk.push({ x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d, a, sp: 1.6 + Math.random() * 2.2, n: THREATS[(Math.random() * THREATS.length) | 0], trail: [], lab: Math.random() < 0.35, seen: false, wob: Math.random() * 6 });
     }
 
     function frame(ts) {
-      const dt = Math.min((ts - t0) / 16.7 || 1, 3); t0 = ts;
+      if (document.hidden) return;
+      if (ts - lastFrame < 33) { raf = requestAnimationFrame(frame); return; }
+      const dt = Math.min((ts - t0) / 16.7 || 1, 2); t0 = ts; lastFrame = ts;
       c.clearRect(0, 0, W, H);
       const g = c.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
       g.addColorStop(0, "rgba(230,112,26,.16)"); g.addColorStop(1, "rgba(230,112,26,0)");
@@ -100,11 +108,11 @@ export default function AttackField({ onEvent, onBlock }) {
         c.globalAlpha = 1; c.fillStyle = COL.bad; c.beginPath(); c.arc(a.x, a.y, 3.4, 0, 7); c.fill();
         if (a.lab && d > R * 1.6) { c.font = "11px JetBrains Mono, monospace"; c.globalAlpha = 0.85; c.fillText(a.n, a.x + 9, a.y - 8); c.globalAlpha = 1; }
         if (d < R * 1.05) {
-          for (let n = 0; n < 16; n++) {
+          for (let n = 0; n < 8; n++) {
             const s = Math.random() * 3 + 0.8, gg = a.a + Math.PI + (Math.random() - 0.5) * 2.4;
             fx.push({ k: "p", x: a.x, y: a.y, vx: Math.cos(gg) * s, vy: Math.sin(gg) * s, l: 1 });
           }
-          fx.push({ k: "r", rad: R, l: 1, a: a.a });
+          if (fx.length < 100) fx.push({ k: "r", rad: R, l: 1, a: a.a });
           cb.current.onBlock?.();
           if (a.lab) cb.current.onEvent?.(a.n, true);
           atk.splice(i, 1);
@@ -120,7 +128,7 @@ export default function AttackField({ onEvent, onBlock }) {
       raf = requestAnimationFrame(frame);
     }
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); removeEventListener("resize", size); };
+    return () => { cancelAnimationFrame(raf); removeEventListener("resize", size); document.removeEventListener("visibilitychange", onVisibility); };
   }, []);
 
   return <canvas ref={ref} className="atk-canvas" aria-hidden="true" />;

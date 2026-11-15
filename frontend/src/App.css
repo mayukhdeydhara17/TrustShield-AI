@@ -474,3 +474,18 @@ button, input { font-family: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Account profile menu */
+.nav-right { display: flex; align-items: center; gap: 14px; }
+.profile-menu { position: relative; }
+.profile-trigger { display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); cursor: pointer; font: 500 13px var(--body); }
+.profile-avatar { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--orange); color: #170b02; font-weight: 800; }
+.profile-chevron { color: var(--muted); font-size: 16px; }
+.profile-popover { position: absolute; top: calc(100% + 10px); right: 0; z-index: 1200; display: flex; flex-direction: column; gap: 8px; width: 245px; padding: 16px; border: 1px solid var(--line-2); border-radius: 16px; background: rgba(21,16,13,.97); box-shadow: 0 16px 44px rgba(0,0,0,.38); opacity: 0; visibility: hidden; transform: translateY(6px); transition: opacity .18s ease, transform .18s ease, visibility .18s; }
+.profile-menu:hover .profile-popover, .profile-menu:focus-within .profile-popover, .profile-menu.open .profile-popover { opacity: 1; visibility: visible; transform: translateY(0); }
+.profile-caption { color: var(--faint); font: 11px var(--mono); letter-spacing: .08em; }
+.profile-popover strong { color: var(--text); overflow-wrap: anywhere; font-size: 15px; }
+.profile-email { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.profile-popover a, .profile-popover button, .nav-signin { color: var(--text); text-decoration: none; font: 500 13px var(--body); border: 0; border-top: 1px solid var(--line); padding: 10px 0 0; margin-top: 4px; background: transparent; text-align: left; cursor: pointer; }
+.profile-popover a:hover, .profile-popover button:hover, .nav-signin:hover { color: var(--orange-hi); }
+@media (max-width: 900px) { .nav-right { margin-left: auto; } .nav-right .status { display: none; } }
