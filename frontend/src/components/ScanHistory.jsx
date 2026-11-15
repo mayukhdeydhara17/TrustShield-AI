@@ -17,7 +17,9 @@ function ScanHistory({ history = [] }) {
               </div>
 
               <div>
-                <strong>{scan.riskLevel}</strong>
+                <strong className={`level-badge ${scan.riskLevel?.toLowerCase() || ""}`}>
+                  {scan.riskLevel}
+                </strong>
                 <p>Risk Score: {scan.riskScore}</p>
               </div>
             </div>

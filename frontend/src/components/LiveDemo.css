@@ -1,0 +1,49 @@
+.threat-backdrop { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; opacity: 0.9; }
+
+.ld .lead { max-width: 620px; }
+.ld-card { --tone: var(--faint); margin-top: 34px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 28px; padding: clamp(20px, 3vw, 36px);
+  background: rgba(21, 16, 13, 0.78); backdrop-filter: blur(10px); border: 1px solid var(--line-2); border-radius: 28px; transition: border-color .5s, box-shadow .5s; }
+.ld-card.tone-bad { --tone: var(--danger); border-color: var(--danger); box-shadow: 0 0 60px rgba(229, 96, 74, .18); }
+.ld-card.tone-ok { --tone: var(--safe); border-color: var(--safe); box-shadow: 0 0 60px rgba(134, 179, 90, .15); }
+
+.ld-msg { background: var(--surface-2); border-radius: 18px 18px 18px 4px; padding: 14px 18px; max-width: 460px; opacity: 0; transform: translateY(8px); transition: .5s; }
+.ld-msg.in { opacity: 1; transform: none; }
+.ld-msg small { color: var(--faint); font-size: 12px; }
+.ld-msg p { font-size: 15px; margin-top: 4px; }
+.ld-msg u { color: var(--orange-hi); text-underline-offset: 3px; overflow-wrap: anywhere; }
+
+.ld-bar { display: flex; gap: 10px; margin: 18px 0 20px; padding: 6px; background: var(--surface); border: 1px solid var(--line-2); border-radius: 999px; }
+.ld-url { flex: 1; min-width: 0; padding: 10px 16px; font: 400 14px var(--mono); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ld-url i { display: inline-block; width: 7px; height: 15px; margin-left: 2px; vertical-align: -2px; background: var(--orange-hi); opacity: 0; }
+.ld-url i.blink { opacity: 1; animation: ld-blink .8s steps(2) infinite; }
+@keyframes ld-blink { 50% { opacity: 0; } }
+.ld-btn { padding: 10px 18px; border-radius: 999px; background: var(--surface-2); color: var(--faint); font: 600 14px var(--body); white-space: nowrap; transition: .3s; }
+.ld-btn.on { background: var(--orange-hi); color: #170b02; }
+
+.ld-checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ld-checks li { display: grid; grid-template-columns: 14px 150px 1fr; align-items: center; gap: 12px; font-size: 14.5px; opacity: .45; transition: opacity .4s; }
+.ld-checks li.st-scan, .ld-checks li.st-done { opacity: 1; }
+.ld-checks em { font-style: normal; color: var(--muted); font-size: 13.5px; }
+.ld-checks .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); }
+.st-scan .dot { background: var(--orange-hi); animation: ld-pulse .7s ease-in-out infinite; }
+.r-ok .dot { background: var(--safe); box-shadow: 0 0 10px var(--safe); }
+.r-warn .dot { background: var(--warn); box-shadow: 0 0 10px var(--warn); }
+.r-bad .dot { background: var(--danger); box-shadow: 0 0 10px var(--danger); }
+.r-bad em { color: var(--danger); }
+@keyframes ld-pulse { 50% { transform: scale(1.7); opacity: .5; } }
+
+.ld-gauge { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.ld-gauge svg { width: 100%; max-width: 280px; }
+.g-track, .g-fill { fill: none; stroke-width: 14; stroke-linecap: round; }
+.g-track { stroke: var(--surface-2); }
+.g-fill { stroke: var(--tone); transition: stroke .5s; }
+.g-num { font: 700 44px var(--heading); fill: var(--text); }
+.g-cap { font: 400 12px var(--body); fill: var(--muted); }
+.ld-verdict { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; opacity: 0; transform: scale(.92); transition: .5s; }
+.ld-verdict.show { opacity: 1; transform: none; }
+.ld-verdict svg { width: 40px; height: 40px; fill: none; stroke: var(--tone); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 4px; }
+.ld-verdict strong { font: 600 20px var(--heading); color: var(--tone); }
+.ld-verdict span { color: var(--muted); font-size: 14px; }
+
+@media (max-width: 860px) { .ld-card { grid-template-columns: 1fr; } .ld-checks li { grid-template-columns: 14px 1fr; } .ld-checks em { grid-column: 2; margin-top: -6px; } }
+@media (prefers-reduced-motion: reduce) { .ld-msg, .ld-verdict, .ld-card, .ld-checks li { transition: none; } }

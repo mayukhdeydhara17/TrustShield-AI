@@ -1,11 +1,16 @@
 import Navbar from "./components/Navbar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import "./App.css";
 import ScanResult from "./components/ScanResult";
 import { scanWebsite } from "./services/scanApi";
 import Dashboard from "./components/Dashboard";
 import ScanHistory from "./components/ScanHistory";
 import RiskChart from "./components/RiskChart";
+const CyberBackground = lazy(() => import("./components/CyberBackground"));
+const ThreatBackdrop = lazy(() => import("./components/ThreatBackdrop"));
+import LiveDemo from "./components/LiveDemo";
+import SignIn from "./components/SignIn";
+import { EvidenceGraph, Story, Steps, Views, Cases, Cta, Footer } from "./components/Landing";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -24,6 +29,14 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [backendStatus, setBackendStatus] = useState("Checking...");
+
+  // simple hash route: #/sign-in shows the login page
+  const [route, setRoute] = useState(window.location.hash);
+  useEffect(() => {
+    const on = () => setRoute(window.location.hash);
+    window.addEventListener("hashchange", on);
+    return () => window.removeEventListener("hashchange", on);
+  }, []);
 
   // Check backend connection
   useEffect(() => {
@@ -105,16 +118,18 @@ function App() {
     }
   }
 
+  if (route === "#/sign-in") return <SignIn />;
+
   return (
-    <div className="app">
-
+    <div className="app" id="top">
+      <Suspense fallback={null}>
+        <CyberBackground />
+        <ThreatBackdrop />
+      </Suspense>
       <Navbar backendStatus={backendStatus} />
-      <Dashboard history={scanHistory} />
-      <main className="hero">
 
-        <p className="tagline">
-          YOUR DIGITAL SAFETY STARTS HERE
-        </p>
+      <main className="hero">
+        <p className="tagline">YOUR DIGITAL SAFETY STARTS HERE</p>
 
         <h1>
           Don't Trust Every Link.
@@ -128,7 +143,6 @@ function App() {
         </p>
 
         <div className="scanner">
-
           <input
             type="text"
             placeholder="Enter website URL..."
@@ -138,39 +152,37 @@ function App() {
               setResult(null);
               setError("");
             }}
+            onKeyDown={(e) => e.key === "Enter" && !loading && handleScan()}
           />
-
-          <button
-            onClick={handleScan}
-            disabled={loading}
-          >
+          <button onClick={handleScan} disabled={loading}>
             {loading ? "Scanning..." : "Scan Website"}
           </button>
-
         </div>
 
-        {loading && (
-          <p className="note">
-            Analyzing website security...
-          </p>
-        )}
+        {loading && <p className="note">Analyzing website security...</p>}
+        {error && <p className="error-message">{error}</p>}
+        <p className="note">Passive checks. Stay alert. Stay protected.</p>
 
-        {error && (
-          <p className="error-message">
-            {error}
-          </p>
-        )}
-
-        <p className="note">
-          Stay alert. Stay protected.
-        </p>
-
+        <EvidenceGraph />
       </main>
 
       <ScanResult result={result} />
-      <RiskChart history={scanHistory} />
-      <ScanHistory history={scanHistory} />
 
+      <LiveDemo />
+
+      <Story />
+      <Steps />
+      <Views />
+      <Cases />
+
+      <div id="history">
+        <Dashboard history={scanHistory} />
+        <RiskChart history={scanHistory} />
+        <ScanHistory history={scanHistory} />
+      </div>
+
+      <Cta />
+      <Footer />
     </div>
   );
 }

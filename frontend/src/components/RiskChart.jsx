@@ -19,9 +19,9 @@ function RiskChart({ history = [] }) {
   };
 
   const categories = [
-    { name: "Safe", count: safe, color: "#22c55e" },
-    { name: "Suspicious", count: suspicious, color: "#f59e0b" },
-    { name: "High Risk", count: highRisk, color: "#ef4444" },
+    { name: "Safe", count: safe, color: "#86B35A" },
+    { name: "Suspicious", count: suspicious, color: "#E3A537" },
+    { name: "High Risk", count: highRisk, color: "#E5604A" },
   ];
 
   return (
